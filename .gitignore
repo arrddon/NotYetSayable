@@ -15,3 +15,12 @@ __pycache__/
 *.pyc
 # Participant archives remain local; source code is publishable.
 legacy/data/
+# This GitHub repository is for the WebApp only. Keep installation assets local.
+/legacy/
+/*.toe
+/PROJECT_CONTEXT.md
+/NEXT_STEPS.md
+/system/local/
+/system/docs/history/
+/system/docs/TD_HANDOFF.md
+/system/tests/test_td_files.py

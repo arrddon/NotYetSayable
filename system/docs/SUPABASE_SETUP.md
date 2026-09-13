@@ -1,6 +1,6 @@
 # Supabase 연결
 
-> 최신 지시는 루트 PROJECT_CONTEXT.md/NEXT_STEPS.md가 우선합니다. 실행 위치는 system/입니다. URL/publishable key는 .env.local에 이미 있습니다. 아래 예제 값으로 기존 설정을 덮어쓰지 마세요. 2026-09-13 확인: 익명 로그인 비활성화, participants 테이블 없음. 모바일 질문/결과 표시는 제거했고 TD가 담당합니다.
+> 실행 위치는 system/입니다. URL/publishable key는 .env.example에 있습니다. 기존 작업 PC의 .env.local도 설정돼 있습니다. 2026-09-13 확인: 익명 로그인 비활성화, participants 테이블 없음. 모바일 질문/결과 표시는 제거했고 별도 TD 설치 화면이 담당합니다.
 
 이 단계는 아직 실행하지 않았습니다. 새 Supabase 프로젝트에 적용하는 초기 마이그레이션입니다. 비어 있지 않은 다른 프로젝트에 그대로 적용하지 마세요.
 
