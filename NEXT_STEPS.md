@@ -4,6 +4,8 @@
 
 ## 이번에 완료한 코드
 
+GitHub main에 구현 커밋 `261989e`를 푸시했다. 인수인계 문서 보완도 같은 브랜치에 포함한다.
+
 - Python 브리지: `system/local/bridge.py` (표준 라이브러리만 사용).
 - TD 설치/어댑터: `system/local/touchdesigner/install.py`, `td_adapter.py`.
 - Supabase 추가 마이그레이션: `202609130002_td_bridge.sql`의 local-state 읽기, 세션별 멱등 claim.

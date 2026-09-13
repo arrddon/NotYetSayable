@@ -58,7 +58,7 @@ system/
 ## 외부 연결 상태
 
 - GitHub: https://github.com/arrddon/NotYetSayable.git
-- 루트 Git 저장소의 origin은 위 주소다. 이번 작업은 사용자 요청에 따라 main에 커밋/푸시한다. 다음 task에서는 `git status`와 원격 HEAD로 실제 업로드 상태를 확인한다. 참가자 응답이 담긴 `legacy/data/`, 실행 데이터, 비밀키는 Git에서 제외한다.
+- 루트 Git 저장소의 origin은 위 주소다. **main 푸시 완료**, 구현 커밋은 `261989e`다. 이후 인수인계 문서 보완 커밋이 이어질 수 있다. 참가자 응답이 담긴 `legacy/data/`, 실행 데이터, 비밀키는 Git에서 제외했다.
 - Supabase: https://kitibydaoavlrqqyqccb.supabase.co
 - 제공된 publishable key는 `system/.env.local`과 `.env.example`에 설정했다. 브라우저용 공개 키이며 관리자/worker 비밀키가 아니다.
 - 읽기 전용 확인: Auth 설정 HTTP 200, **익명 로그인 비활성화**. participants 조회 HTTP 404/PGRST205, **스키마 캐시에 테이블 없음**.
