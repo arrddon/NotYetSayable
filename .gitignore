@@ -1,0 +1,17 @@
+node_modules/
+dist/
+runtime/
+.env
+.env.*
+!.env.example
+*.log
+system/node_modules/
+system/dist/
+system/runtime/
+system/.env.local
+*.toe.bak
+Backup/
+__pycache__/
+*.pyc
+# Participant archives remain local; source code is publishable.
+legacy/data/

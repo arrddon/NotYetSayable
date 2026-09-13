@@ -1,0 +1,27 @@
+{
+  "name": "not-yet-sayable-v04",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/demo-server.mjs",
+    "dev:td": "node tools/demo-server.mjs --td",
+    "dev:supabase": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "mock-worker": "node tools/mock-worker.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "leaflet": "^1.9.4",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@types/leaflet": "^1.9.20",
+    "@types/qrcode": "^1.5.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  }
+}
