@@ -43,8 +43,9 @@ function button(text: string, action: () => void, disabled = false) {
 }
 function link(text: string, href: string) { const node = el('a', text); node.href = href; return node; }
 function content() { return document.querySelector<HTMLElement>('#content')!; }
-function clearContent() { cleanupMap?.(); cleanupMap = undefined; content().replaceChildren(); }
+function clearContent() { cleanupMap?.(); cleanupMap = undefined; content().replaceChildren(); content().classList.remove('map-step'); }
 function shell() {
+  document.body.classList.add(isOperator ? 'operator' : 'participant');
   app.replaceChildren(el('h1', isOperator ? 'Operator' : 'Not Yet Sayable'));
   if (demo) app.append(el('p', 'Demo mode', 'notice'));
   const errors = el('div'); errors.id = 'errors'; errors.setAttribute('role', 'alert');
@@ -156,7 +157,7 @@ function renderParticipant() {
   if (key === screenKey) return;
   screenKey = key; clearContent();
   const host = content();
-  host.append(el('p', p.slot, 'muted'));
+  renderProgress(host, p);
   if (review) {
     host.append(el('p', 'Step ' + review.question));
     const actions = el('div', undefined, 'actions');
@@ -164,28 +165,25 @@ function renderParticipant() {
       button('Return', () => { history.pushState(null, '', '/participant/' + p.id); renderParticipant(); }));
     host.append(actions);
   } else if (p.step === 'consent') {
-    host.append(el('h2', 'Consent'));
-    const label = el('label'); const check = el('input'); check.type = 'checkbox';
-    label.append(check, ' I agree to take part and have my written responses captured and processed.');
-    const next = actionButton('Agree and begin', () => act('consent'), true);
-    check.onchange = () => { next.dataset.unavailable = String(!check.checked); updatePending(); };
-    host.append(label, next);
+    host.append(el('div', undefined, 'phase-orbit'), actionButton('I agree · Begin', () => act('consent')));
   } else if (p.step === 'tutorial') {
-    host.append(el('p', 'Follow the instructions on the installation.'), actionButton('Continue', () => act('tutorial')));
+    host.append(el('div', undefined, 'phase-orbit'), actionButton('Continue', () => act('tutorial')));
   } else if (p.step === 'question') {
-    if (p.status === 'ready') host.append(actionButton('Confirm', () => act('confirm')));
+    if (p.status === 'ready') host.append(el('div', undefined, 'phase-orbit'), actionButton('Confirm', () => act('confirm')));
     else if (p.status === 'countdown') {
       const counter = el('p'); counter.id = 'countdown'; host.append(counter); tick();
-    } else if (p.status === 'processing') host.append(el('p', 'Please wait…'));
-    else if (p.status === 'error') host.append(actionButton('Try Again', () => act('retry')));
-    else host.append(el('p', 'Look at the installation.'), actionButton('Continue', () => act('continue')));
+    } else if (p.status === 'processing') {
+      const waiting = el('div', undefined, 'phase-orbit processing');
+      waiting.setAttribute('role', 'status'); waiting.setAttribute('aria-label', 'Recording your response'); host.append(waiting);
+    } else if (p.status === 'error') host.append(el('div', '↺', 'state-symbol'), actionButton('Try Again', () => act('retry')));
+    else host.append(el('div', '✓', 'state-symbol'), actionButton('Continue', () => act('continue')));
   } else if (p.step === 'map') renderMap(host, p);
-  else host.append(el('p', 'Thank you.'));
+  else host.append(el('div', '✓', 'state-symbol'), el('p', 'Thank you.', 'completion'));
   // Optional recovery controls. Never render question copy, transcripts, or analysis on the phone.
   if (snapshot.responses.length && !['countdown','processing'].includes(p.status)) {
     const details = el('details'); details.append(el('summary', 'Repeat a step'));
     const nav = el('nav', undefined, 'actions');
-    for (const r of snapshot.responses) {
+    for (const r of snapshot.responses.filter(r => r.question <= 3)) {
       const a = link('Step ' + r.question, '/participant/' + p.id + '?review=' + r.question);
       a.onclick = (event) => { event.preventDefault(); history.pushState(null, '', a.href); renderParticipant(); };
       nav.append(a);
@@ -195,8 +193,24 @@ function renderParticipant() {
   updatePending();
 }
 
+function renderProgress(host: HTMLElement, p: Participant) {
+  const labels = ['Consent', 'Instructions', 'Q1', 'Q2', 'Q3', 'Pin'];
+  const index = p.step === 'consent' ? 0 : p.step === 'tutorial' ? 1 : p.step === 'question' ? Math.min(4, p.question + 1) : 5;
+  const complete = p.step === 'complete';
+  const header = el('div', undefined, 'step-heading');
+  header.append(el('span', `Participant ${p.slot}`, 'participant-label'), el('span', complete ? 'Complete' : labels[index]));
+  const progress = el('ol', undefined, 'progress'); progress.setAttribute('aria-label', 'Your progress');
+  labels.forEach((label, i) => {
+    const segment = el('li', undefined, complete || i < index ? 'done' : i === index ? 'current' : '');
+    segment.setAttribute('aria-label', `${label}${complete || i < index ? ', complete' : i === index ? ', current step' : ''}`);
+    if (!complete && i === index) segment.setAttribute('aria-current', 'step');
+    progress.append(segment);
+  });
+  host.append(header, progress);
+}
+
 function renderMap(host: HTMLElement, p: Participant) {
-  host.append(el('h2', 'Pin a place'), el('p', 'Tap the map to choose a place.'));
+  host.classList.add('map-step');
   const mapHost = el('div'); mapHost.id = 'map';
   const mapMessage = el('p', '', 'muted'); mapMessage.id = 'map-message';
   const form = el('form'); const lat = el('input'); const lng = el('input');
@@ -205,14 +219,16 @@ function renderMap(host: HTMLElement, p: Participant) {
   if (p.pin) { lat.value = String(p.pin.lat); lng.value = String(p.pin.lng); }
   const latLabel = el('label', 'Latitude '); latLabel.append(lat);
   const lngLabel = el('label', 'Longitude '); lngLabel.append(lng);
-  const submit = actionButton('Confirm location', () => form.requestSubmit());
+  const submit = actionButton('Confirm pin', () => form.requestSubmit(), !p.pin);
   const coordinates = el('details'); coordinates.append(el('summary', 'Enter coordinates'), latLabel, lngLabel);
   form.append(coordinates, submit);
   form.onsubmit = (event) => { event.preventDefault(); if (form.reportValidity()) act('pin', { lat: Number(lat.value), lng: Number(lng.value) }); };
   host.append(mapHost, mapMessage, form);
-  const map = mountMap(mapHost, p.pin, (pin) => { lat.value = String(pin.lat); lng.value = String(pin.lng); });
+  const map = mountMap(mapHost, p.pin, (pin) => { lat.value = String(pin.lat); lng.value = String(pin.lng); submit.dataset.unavailable = 'false'; updatePending(); });
   for (const input of [lat,lng]) input.onchange = () => {
-    if (lat.value && lng.value && lat.validity.valid && lng.validity.valid) map.setPin({ lat: Number(lat.value), lng: Number(lng.value) });
+    const valid = Boolean(lat.value && lng.value && lat.validity.valid && lng.validity.valid);
+    submit.dataset.unavailable = String(!valid); updatePending();
+    if (valid) map.setPin({ lat: Number(lat.value), lng: Number(lng.value) });
   };
   cleanupMap = map.destroy;
 }

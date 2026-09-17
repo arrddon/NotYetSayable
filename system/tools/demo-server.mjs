@@ -13,7 +13,7 @@ const tdMode = process.argv.includes('--td');
 const bridgeToken = tdMode ? randomBytes(32).toString('hex') : '';
 await mkdir('runtime', { recursive: true });
 if (tdMode) await writeFile('runtime/demo-bridge.json', JSON.stringify({ url: `http://127.0.0.1:${port}/demo/bridge`, token: bridgeToken }));
-const db = await openDatabase(resolve('runtime/demo-db'));
+const db = await openDatabase(resolve(process.env.NYS_DEMO_DATA_DIR ?? 'runtime/demo-db'));
 const vite = await createViteServer({
   server: { middlewareMode: true },
   appType: 'spa',

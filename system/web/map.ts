@@ -10,7 +10,10 @@ export function mountMap(host: HTMLElement, initial: { lng: number; lat: number 
   let marker: L.CircleMarker | undefined;
   function setPin(pin: { lat: number; lng: number }) {
     if (marker) marker.setLatLng(pin);
-    else marker = L.circleMarker(pin, { radius: 8, color: '#111', fillColor: '#111', fillOpacity: 1 }).addTo(map);
+    else {
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#247bd5';
+      marker = L.circleMarker(pin, { radius: 9, color: '#fff', weight: 3, fillColor: accent, fillOpacity: 1 }).addTo(map);
+    }
   }
   if (initial) setPin(initial);
   map.on('click', (event: L.LeafletMouseEvent) => {

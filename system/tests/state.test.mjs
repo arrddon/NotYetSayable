@@ -40,20 +40,27 @@ async function completeQuestion(s) {
   return snapshot(confirmed);
 }
 
-test('A and B progress independently; all four answers are required before pinning', async () => {
+test('A and B progress independently; all three answers are required before pinning', async () => {
   let { A, B } = await pair();
   A = await ready(A);
-  for (let q = 1; q <= 4; q++) {
+  for (let q = 1; q <= 3; q++) {
     assert.equal(A.participant.question, q);
     await assert.rejects(action(A, 'pin', { lat: 0, lng: 0 }), /INVALID_TRANSITION/);
     A = await completeQuestion(A);
     A = await action(A, 'continue');
   }
   assert.equal(A.participant.step, 'map');
+  assert.equal(A.participant.question, 4);
+  const local = await worker('nys_local_state', {p_session_id:A.participant.session_id});
+  assert.equal(local.participants[0].responses.length, 3);
+  assert.ok(local.participants[0].responses.every(r => /^[0-9a-f-]{36}$/.test(r.job_id)));
   await assert.rejects(action(A, 'pin', { lat: 91, lng: 0 }), /INVALID_COORDINATES/);
   A = await action(A, 'pin', { lat: 51.5, lng: -0.1 });
   assert.equal(A.participant.step, 'complete');
-  assert.equal(A.responses.length, 4);
+  assert.equal(A.responses.length, 3);
+  await assert.rejects(action(A, 'revisit', {question:4}), /INVALID_TRANSITION/);
+  const revisited = await action(A, 'revisit', {question:1});
+  assert.equal(revisited.participant.pin, null);
   B = await snapshot(B);
   assert.equal(B.participant.step, 'consent');
 });

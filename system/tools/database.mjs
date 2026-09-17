@@ -24,6 +24,7 @@ export async function openDatabase(dataDir) {
   }
   const bridge = await db.query("select to_regprocedure('public.nys_local_state(uuid)') as existing");
   if (!bridge.rows[0].existing) await db.exec(await readFile(new URL('../supabase/migrations/202609130002_td_bridge.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/202609170003_master_flow.sql', import.meta.url), 'utf8'));
   return db;
 }
 
