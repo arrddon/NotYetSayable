@@ -1,5 +1,5 @@
 export type Participant = {
-  id: string; session_id: string; slot: 'A' | 'B'; generation: number; revision: number;
+  id: string; session_id: string; slot: 'A' | 'B'; owner_id: string | null; generation: number; revision: number;
   step: 'consent' | 'tutorial' | 'question' | 'map' | 'complete';
   question: number; status: 'ready' | 'countdown' | 'processing' | 'result' | 'error';
   countdown_ends_at: string | null; active_job_id: string | null; error_code: string | null;

@@ -25,6 +25,7 @@ export async function openDatabase(dataDir) {
   const bridge = await db.query("select to_regprocedure('public.nys_local_state(uuid)') as existing");
   if (!bridge.rows[0].existing) await db.exec(await readFile(new URL('../supabase/migrations/202609130002_td_bridge.sql', import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('../supabase/migrations/202609170003_master_flow.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/202609170004_public_qr.sql', import.meta.url), 'utf8'));
   return db;
 }
 
@@ -36,6 +37,9 @@ export const RPC_ARGUMENTS = {
   nys_operator_state: [],
   nys_action: ['p_id', 'p_generation', 'p_revision', 'p_request_id', 'p_action', 'p_data'],
   nys_operator_action: ['p_id', 'p_generation', 'p_revision', 'p_request_id', 'p_action'],
+  nys_publish_qr: ['p_id', 'p_token'],
+  nys_public_qr: ['p_display_id'],
+  nys_display_links: ['p_session_id'],
   nys_worker_claim: ['p_mode'],
   nys_worker_finish: ['p_job_id', 'p_lease_id', 'p_result', 'p_error'],
   nys_local_state: ['p_session_id'],

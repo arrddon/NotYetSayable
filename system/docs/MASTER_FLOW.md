@@ -1,5 +1,21 @@
 # CSV master flow — 2026-09-17
 
+## Public TD QR display
+
+Migration `supabase/migrations/202609170004_public_qr.sql` was applied remotely on
+2026-09-17; anonymous read is allowed and anonymous publication is denied. On the
+operator page, create A's TD display link and copy its `/display/<id>`
+link into a TouchDesigner Web Render TOP. This display does not require operator login.
+The display ID remains stable across `Reset A`; the operator page publishes the new
+entry token automatically. The QR disappears after a participant claims A. Only show
+A when running one participant at a time. The public display reveals the current
+entry token by design, but never an operator credential or service-role key.
+
+The participant entry opens Not Yet Sayable / Latent Home / Start before consent.
+The interface and favicon use #1981f0 with glass controls and short status text.
+Completed participants see a closing message; the operator resets the slot for the
+next visitor. Final archive creation still requires all three answers and the pin.
+
 ## Current scope
 
 The installation CSV is the source of all question, consent and tutorial copy.

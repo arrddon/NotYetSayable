@@ -6,6 +6,7 @@ import type { Created, OperatorState, Participant, Snapshot } from './types';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 const isOperator = location.pathname === '/operator';
+const publicDisplayId = location.pathname.match(/^\/display\/([0-9a-f-]{36})$/i)?.[1];
 const api = new Api(isOperator);
 let snapshot: Snapshot | undefined;
 let operatorState: OperatorState | undefined;
@@ -19,9 +20,12 @@ let screenKey = '';
 let cleanupMap: (() => void) | undefined;
 let unsubscribe: (() => void) | undefined;
 let selectedSession = sessionStorage.getItem('nys-selected-session') ?? '';
+let displaySlot = new URLSearchParams(location.search).get('display');
+let displayLinksSession = '';
 type Pending = { name: string; args: Record<string, unknown> };
 type SavedEntry = { token: string; generation: number };
 const entries: Record<string, SavedEntry> = JSON.parse(sessionStorage.getItem('nys-entries') ?? '{}');
+const displayIds: Record<string, string> = JSON.parse(sessionStorage.getItem('nys-display-ids') ?? '{}');
 const pendingKey = () => `nys-pending-${isOperator ? 'operator' : participantId ?? 'join'}`;
 const pending = (): Pending | null => JSON.parse(sessionStorage.getItem(pendingKey()) ?? 'null');
 const statusNames: Record<string, string> = {
@@ -46,6 +50,7 @@ function content() { return document.querySelector<HTMLElement>('#content')!; }
 function clearContent() { cleanupMap?.(); cleanupMap = undefined; content().replaceChildren(); content().classList.remove('map-step'); }
 function shell() {
   document.body.classList.add(isOperator ? 'operator' : 'participant');
+  if (publicDisplayId) document.body.classList.add('qr-display');
   app.replaceChildren(el('h1', isOperator ? 'Operator' : 'Not Yet Sayable'));
   if (demo) app.append(el('p', 'Demo mode', 'notice'));
   const errors = el('div'); errors.id = 'errors'; errors.setAttribute('role', 'alert');
@@ -118,11 +123,13 @@ async function mutate(name: string, args: Record<string, unknown>, replay = fals
       sessionStorage.setItem('nys-selected-session', selectedSession);
       for (const entry of created.entries) entries[entry.id] = { token: entry.token, generation: 1 };
       sessionStorage.setItem('nys-entries', JSON.stringify(entries));
+      for (const entry of created.entries) await publishQr(entry.id, entry.token);
     } else if (name === 'nys_operator_action') {
       const updated = result as { snapshot: Snapshot; token: string | null };
       if (updated.token) {
         entries[updated.snapshot.participant.id] = { token: updated.token, generation: updated.snapshot.participant.generation };
         sessionStorage.setItem('nys-entries', JSON.stringify(entries));
+        await publishQr(updated.snapshot.participant.id, updated.token);
       }
       screenKey = '';
     }
@@ -143,8 +150,37 @@ function act(action: string, data: Record<string, unknown> = {}) {
 }
 function operatorAct(p: Participant, action: string) {
   if (action === 'reset' && !confirm(`Reset participant ${p.slot}? Their current QR code will expire.`)) return;
+  if (action === 'rotate_entry' && p.owner_id && !confirm(`Replace access for ${p.slot}? The current phone will lose access. Use Reset for a new participant.`)) return;
   void mutate('nys_operator_action', { p_id: p.id, p_generation: p.generation, p_revision: p.revision,
     p_request_id: crypto.randomUUID(), p_action: action });
+}
+
+async function publishQr(participantId: string, token: string) {
+  displayIds[participantId] = await api.call<string>('nys_publish_qr', { p_id: participantId, p_token: token });
+  sessionStorage.setItem('nys-display-ids', JSON.stringify(displayIds));
+}
+
+async function refreshPublicDisplay() {
+  if (!publicDisplayId || refreshing) return;
+  refreshing = true;
+  try {
+    const state = await api.call<{ available: boolean; token?: string }>('nys_public_qr', { p_display_id: publicDisplayId });
+    const key = state.available ? state.token ?? '' : 'unavailable';
+    if (key !== screenKey) {
+      screenKey = key; clearContent();
+      const host = content();
+      host.append(el('h2', 'Not Yet Sayable'));
+      if (state.available && state.token) {
+        const canvas = el('canvas', undefined, 'qr');
+        canvas.setAttribute('aria-label', 'Entry QR');
+        host.append(canvas, el('p', 'Scan to begin'));
+        await QRCode.toCanvas(canvas, `${location.origin}/join#token=${encodeURIComponent(state.token)}`,
+          { width: 720, margin: 2, errorCorrectionLevel: 'M' });
+      } else host.append(el('p', 'Please wait for the next participant.'));
+    }
+    message();
+  } catch (error) { screenKey = ''; clearContent(); content().append(el('p', 'Reconnecting. Please wait.', 'phase-message')); handleError(error); }
+  finally { refreshing = false; }
 }
 
 function renderParticipant() {
@@ -153,10 +189,20 @@ function renderParticipant() {
   const requestedReview = Number(new URLSearchParams(location.search).get('review'));
   const review = !['countdown','processing'].includes(p.status)
     ? snapshot.responses.find((r) => r.question === requestedReview) : undefined;
-  const key = [p.id, p.generation, p.revision, review?.question ?? ''].join(':');
+  const introKey = `nys-intro-${p.id}-${p.generation}`;
+  const showIntro = p.step === 'consent' && sessionStorage.getItem(introKey) !== 'started';
+  const key = [p.id, p.generation, p.revision, review?.question ?? '', showIntro].join(':');
   if (key === screenKey) return;
   screenKey = key; clearContent();
   const host = content();
+  document.body.classList.toggle('intro', showIntro);
+  if (showIntro) {
+    const title = el('div', undefined, 'intro-copy');
+    title.append(el('h2', 'Not Yet Sayable', 'intro-title'), el('p', 'Latent Home', 'intro-subtitle'));
+    host.append(title,
+      button('Start', () => { sessionStorage.setItem(introKey, 'started'); screenKey = ''; renderParticipant(); }));
+    return;
+  }
   renderProgress(host, p);
   if (review) {
     host.append(el('p', 'Step ' + review.question));
@@ -165,22 +211,22 @@ function renderParticipant() {
       button('Return', () => { history.pushState(null, '', '/participant/' + p.id); renderParticipant(); }));
     host.append(actions);
   } else if (p.step === 'consent') {
-    host.append(el('div', undefined, 'phase-orbit'), actionButton('I agree · Begin', () => act('consent')));
+    host.append(el('p', 'Read the consent on the installation screen.', 'phase-message'), actionButton('I agree', () => act('consent')));
   } else if (p.step === 'tutorial') {
-    host.append(el('div', undefined, 'phase-orbit'), actionButton('Continue', () => act('tutorial')));
+    host.append(el('p', 'Follow the instructions on the installation screen.', 'phase-message'), actionButton('Continue', () => act('tutorial')));
   } else if (p.step === 'question') {
-    if (p.status === 'ready') host.append(el('div', undefined, 'phase-orbit'), actionButton('Confirm', () => act('confirm')));
+    if (p.status === 'ready') host.append(el('p', 'When your writing is ready, confirm to capture it.', 'phase-message'), actionButton('Confirm', () => act('confirm')));
     else if (p.status === 'countdown') {
       const counter = el('p'); counter.id = 'countdown'; host.append(counter); tick();
     } else if (p.status === 'processing') {
-      const waiting = el('div', undefined, 'phase-orbit processing');
+      const waiting = el('p', 'Reading your response. Please wait.', 'phase-message');
       waiting.setAttribute('role', 'status'); waiting.setAttribute('aria-label', 'Recording your response'); host.append(waiting);
-    } else if (p.status === 'error') host.append(el('div', '↺', 'state-symbol'), actionButton('Try Again', () => act('retry')));
-    else host.append(el('div', '✓', 'state-symbol'), actionButton('Continue', () => act('continue')));
+    } else if (p.status === 'error') host.append(el('p', 'Your response could not be processed. Check your writing and try again.', 'phase-message'), actionButton('Try Again', () => act('retry')));
+    else host.append(el('p', 'Your response is ready on the installation screen.', 'phase-message'), actionButton('Continue', () => act('continue')));
   } else if (p.step === 'map') renderMap(host, p);
-  else host.append(el('div', '✓', 'state-symbol'), el('p', 'Thank you.', 'completion'));
+  else host.append(el('p', 'Thank you for taking part. You can close this page.', 'phase-message'));
   // Optional recovery controls. Never render question copy, transcripts, or analysis on the phone.
-  if (snapshot.responses.length && !['countdown','processing'].includes(p.status)) {
+  if (p.step !== 'complete' && snapshot.responses.length && !['countdown','processing'].includes(p.status)) {
     const details = el('details'); details.append(el('summary', 'Repeat a step'));
     const nav = el('nav', undefined, 'actions');
     for (const r of snapshot.responses.filter(r => r.question <= 3)) {
@@ -211,6 +257,7 @@ function renderProgress(host: HTMLElement, p: Participant) {
 
 function renderMap(host: HTMLElement, p: Participant) {
   host.classList.add('map-step');
+  host.append(el('p', 'Tap the map to place your pin, then confirm.', 'map-instruction'));
   const mapHost = el('div'); mapHost.id = 'map';
   const mapMessage = el('p', '', 'muted'); mapMessage.id = 'map-message';
   const form = el('form'); const lat = el('input'); const lng = el('input');
@@ -238,10 +285,26 @@ function renderOperator() {
   const state = operatorState;
   if (!state.sessions.some((s) => s.id === selectedSession)) selectedSession = state.sessions[0]?.id ?? '';
   const participants = state.participants.filter((p) => p.session_id === selectedSession);
-  const key = `operator:${selectedSession}:${state.sessions.length}:${participants.map((p) => `${p.id}:${p.revision}`).join(',')}`;
+  const key = `operator:${selectedSession}:${displaySlot}:${state.sessions.length}:${participants.map((p) => `${p.id}:${p.revision}`).join(',')}`;
   if (screenKey === key) { tick(); return; }
   screenKey = key; clearContent();
   const host = content();
+  if (displaySlot === 'A' || displaySlot === 'B') {
+    document.body.classList.add('qr-display');
+    const p = participants.find((item) => item.slot === displaySlot);
+    const saved = p && entries[p.id];
+    const back = button('Back to operator', () => {
+      displaySlot = null; history.replaceState(null, '', '/operator'); screenKey = ''; renderOperator();
+    });
+    if (p && !p.owner_id && saved?.generation === p.generation) {
+      const entryUrl = `${location.origin}/join#token=${encodeURIComponent(saved.token)}`;
+      const canvas = el('canvas', undefined, 'qr'); canvas.setAttribute('aria-label', `Participant ${p.slot} entry QR`);
+      void QRCode.toCanvas(canvas, entryUrl, { width: 720, margin: 2, errorCorrectionLevel: 'M' }).catch(handleError);
+      host.append(el('h2', 'Not Yet Sayable'), canvas, el('p', 'Scan to begin'), back);
+    } else host.append(el('h2', 'Not Yet Sayable'), el('p', p?.owner_id ? 'In progress' : 'Ask the operator for a new QR code.'), back);
+    return;
+  }
+  document.body.classList.remove('qr-display');
   const actions = el('div', undefined, 'actions');
   actions.append(actionButton('New session / QR codes', () => void mutate('nys_create_session', { p_request_id: crypto.randomUUID() })),
     button('Sign out', () => { void api.logout().then(() => location.reload()); }));
@@ -269,13 +332,23 @@ function renderOperator() {
       actionButton('Reissue entry link', () => operatorAct(p, 'rotate_entry')));
     section.append(controls);
     const saved = entries[p.id];
-    if (saved && saved.generation === p.generation) {
+    if (saved && saved.generation === p.generation && !p.owner_id) {
       const entryUrl = `${location.origin}/join#token=${encodeURIComponent(saved.token)}`;
       const canvas = el('canvas', undefined, 'qr'); canvas.setAttribute('aria-label', `Participant ${p.slot} entry QR`);
       void QRCode.toCanvas(canvas, entryUrl, { width: 180, margin: 1, errorCorrectionLevel: 'M' }).catch(handleError);
       const entryLink = link(`Open participant ${p.slot}`, entryUrl); entryLink.target = '_blank'; entryLink.rel = 'noopener noreferrer';
-      section.append(canvas, entryLink, el('p', 'One browser per entry. Reissuing removes access from the previous browser.', 'muted'));
-    } else section.append(el('p', 'Reissue the entry link to display a QR code.', 'muted'));
+      section.append(canvas, entryLink, button(displayIds[p.id] ? 'Refresh TD QR' : 'Create TD display link', () => {
+        void publishQr(p.id, saved.token).then(() => { screenKey = ''; renderOperator(); }).catch(handleError);
+      }), el('p', 'One browser per entry. Reissuing removes access from the previous browser.', 'muted'));
+    } else section.append(el('p', p.owner_id ? 'Entry claimed · QR hidden' : 'Reissue the entry link to display a QR code.', 'muted'));
+    if (displayIds[p.id]) {
+      const displayLink = link(`Open ${p.slot} public display`, `${location.origin}/display/${displayIds[p.id]}`);
+      displayLink.target = '_blank'; displayLink.rel = 'noopener noreferrer';
+      const copy = button('Copy TD display URL', () => {
+        void navigator.clipboard.writeText(displayLink.href).then(() => { copy.textContent = 'Copied'; }).catch(() => message('Copy the public display link address to use it in TD.'));
+      });
+      section.append(displayLink, copy);
+    }
     grid.append(section);
   }
   host.append(grid); tick(); updatePending();
@@ -306,6 +379,12 @@ async function refresh() {
     const start = Date.now();
     if (isOperator) {
       operatorState = await api.call<OperatorState>('nys_operator_state');
+      if (!operatorState.sessions.some(s => s.id === selectedSession)) selectedSession = operatorState.sessions[0]?.id ?? '';
+      if (selectedSession && displayLinksSession !== selectedSession) {
+        Object.assign(displayIds, await api.call<Record<string, string>>('nys_display_links', { p_session_id: selectedSession }));
+        displayLinksSession = selectedSession;
+        screenKey = '';
+      }
       serverOffset = Date.parse(operatorState.server_now) - (start + Date.now()) / 2;
       renderOperator();
     } else {
@@ -358,6 +437,11 @@ async function start() {
   }
   if (location.pathname === '/') {
     content().append(el('p', 'Please scan your QR code.'), link('Operator', '/operator'));
+    return;
+  }
+  if (publicDisplayId) {
+    await refreshPublicDisplay();
+    setInterval(() => { void refreshPublicDisplay(); }, 1500);
     return;
   }
   try {
