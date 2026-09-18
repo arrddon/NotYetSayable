@@ -1,4 +1,5 @@
 import './style.css';
+import { mountAtmosphere } from './atmosphere';
 import QRCode from 'qrcode';
 import { Api, ApiError, configured, demo } from './api';
 import { mountMap } from './map';
@@ -51,6 +52,7 @@ function clearContent() { cleanupMap?.(); cleanupMap = undefined; content().repl
 function shell() {
   document.body.classList.add(isOperator ? 'operator' : 'participant');
   if (publicDisplayId) document.body.classList.add('qr-display');
+  if (!isOperator && !publicDisplayId) mountAtmosphere();
   app.replaceChildren(el('h1', isOperator ? 'Operator' : 'Not Yet Sayable'));
   if (demo) app.append(el('p', 'Demo mode', 'notice'));
   const errors = el('div'); errors.id = 'errors'; errors.setAttribute('role', 'alert');
@@ -198,7 +200,7 @@ function renderParticipant() {
   document.body.classList.toggle('intro', showIntro);
   if (showIntro) {
     const title = el('div', undefined, 'intro-copy');
-    title.append(el('h2', 'Not Yet Sayable', 'intro-title'), el('p', 'Latent Home', 'intro-subtitle'));
+    title.append(el('p', 'Latent Home', 'intro-subtitle'));
     host.append(title,
       button('Start', () => { sessionStorage.setItem(introKey, 'started'); screenKey = ''; renderParticipant(); }));
     return;
@@ -211,20 +213,20 @@ function renderParticipant() {
       button('Return', () => { history.pushState(null, '', '/participant/' + p.id); renderParticipant(); }));
     host.append(actions);
   } else if (p.step === 'consent') {
-    host.append(el('p', 'Read the consent on the installation screen.', 'phase-message'), actionButton('I agree', () => act('consent')));
+    host.append(actionButton('I agree', () => act('consent')));
   } else if (p.step === 'tutorial') {
-    host.append(el('p', 'Follow the instructions on the installation screen.', 'phase-message'), actionButton('Continue', () => act('tutorial')));
+    host.append(actionButton('Continue', () => act('tutorial')));
   } else if (p.step === 'question') {
-    if (p.status === 'ready') host.append(el('p', 'When your writing is ready, confirm to capture it.', 'phase-message'), actionButton('Confirm', () => act('confirm')));
+    if (p.status === 'ready') host.append(actionButton('Confirm', () => act('confirm')));
     else if (p.status === 'countdown') {
       const counter = el('p'); counter.id = 'countdown'; host.append(counter); tick();
     } else if (p.status === 'processing') {
-      const waiting = el('p', 'Reading your response. Please wait.', 'phase-message');
+      const waiting = el('p', 'Reading your response. Please wait.', 'sr-only');
       waiting.setAttribute('role', 'status'); waiting.setAttribute('aria-label', 'Recording your response'); host.append(waiting);
-    } else if (p.status === 'error') host.append(el('p', 'Your response could not be processed. Check your writing and try again.', 'phase-message'), actionButton('Try Again', () => act('retry')));
-    else host.append(el('p', 'Your response is ready on the installation screen.', 'phase-message'), actionButton('Continue', () => act('continue')));
+    } else if (p.status === 'error') host.append(actionButton('Try Again', () => act('retry')));
+    else host.append(actionButton('Continue', () => act('continue')));
   } else if (p.step === 'map') renderMap(host, p);
-  else host.append(el('p', 'Thank you for taking part. You can close this page.', 'phase-message'));
+  else host.append(el('p', 'Thank you for taking part. You can close this page.', 'sr-only'));
   // Optional recovery controls. Never render question copy, transcripts, or analysis on the phone.
   if (p.step !== 'complete' && snapshot.responses.length && !['countdown','processing'].includes(p.status)) {
     const details = el('details'); details.append(el('summary', 'Repeat a step'));
@@ -244,7 +246,8 @@ function renderProgress(host: HTMLElement, p: Participant) {
   const index = p.step === 'consent' ? 0 : p.step === 'tutorial' ? 1 : p.step === 'question' ? Math.min(4, p.question + 1) : 5;
   const complete = p.step === 'complete';
   const header = el('div', undefined, 'step-heading');
-  header.append(el('span', `Participant ${p.slot}`, 'participant-label'), el('span', complete ? 'Complete' : labels[index]));
+  const stateLabel = p.step === 'question' && p.status !== 'ready' ? ` · ${statusNames[p.status]}` : '';
+  header.append(el('span', `Participant ${p.slot}`, 'participant-label'), el('span', complete ? 'Complete' : labels[index] + stateLabel));
   const progress = el('ol', undefined, 'progress'); progress.setAttribute('aria-label', 'Your progress');
   labels.forEach((label, i) => {
     const segment = el('li', undefined, complete || i < index ? 'done' : i === index ? 'current' : '');
