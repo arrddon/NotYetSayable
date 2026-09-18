@@ -432,6 +432,34 @@ async function startState() {
   // Refetch after subscription setup; periodic reads repair missed realtime events.
   await refresh();
 }
+function renderEntry(token: string) {
+  clearContent();
+  document.body.classList.add('intro');
+  const title = el('div', undefined, 'intro-copy');
+  title.append(el('p', 'Latent Home', 'intro-subtitle'));
+  let joining = false;
+  const startButton = button('Start', () => { void join(); });
+  async function join() {
+    if (joining) return;
+    joining = true;
+    startButton.disabled = true;
+    message();
+    try {
+      // Claiming the entry is the durable Start signal consumed by TD.
+      // Merely opening the QR URL must leave the installation on its title.
+      snapshot = await api.call<Snapshot>('nys_join', { p_token: token });
+      participantId = snapshot.participant.id;
+      sessionStorage.setItem(`nys-intro-${participantId}-${snapshot.participant.generation}`, 'started');
+      history.replaceState(null, '', `/participant/${participantId}`);
+      screenKey = '';
+      renderParticipant();
+      await startState();
+      updatePending();
+    } catch (error) { handleError(error); }
+    finally { joining = false; startButton.disabled = false; }
+  }
+  content().append(title, startButton);
+}
 async function start() {
   shell();
   if (!configured) {
@@ -453,9 +481,8 @@ async function start() {
     if (location.pathname === '/join') {
       const token = new URLSearchParams(location.hash.slice(1)).get('token');
       if (!token) throw new ApiError('ENTRY_EXPIRED');
-      snapshot = await api.call<Snapshot>('nys_join', { p_token: token });
-      participantId = snapshot.participant.id;
-      history.replaceState(null, '', `/participant/${participantId}`);
+      renderEntry(token);
+      return;
     }
     if (!isOperator && !participantId) { content().append(el('p', 'Please scan your QR code.')); return; }
     await startState(); updatePending();
