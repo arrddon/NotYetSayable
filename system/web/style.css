@@ -23,7 +23,7 @@ section { margin:20px 0; }
 .operator-grid section { padding:24px; border:1px solid #ffffff45; border-radius:22px; background:rgba(0,35,85,.12); backdrop-filter:blur(20px); }
 .operator-grid section > a { display:block; margin:14px 0; }
 .operator-grid section > button { margin:8px 8px 0 0; }
-.qr { display:block; width:200px; height:200px; max-width:100%; margin:24px 0 16px; border:10px solid #fff; border-radius:8px; background:#fff; }
+.qr { display:block; width:min(200px,100%)!important; height:auto!important; aspect-ratio:1 / 1; flex:none; object-fit:contain; max-width:100%; margin:24px 0 16px; border:10px solid #fff; border-radius:8px; background:#fff; }
 .participant main { max-width:480px; min-height:100svh; display:flex; flex-direction:column; padding:max(28px,env(safe-area-inset-top)) 28px max(28px,env(safe-area-inset-bottom)); }
 .participant h1 { margin-bottom:40px; font-size:1.125rem; }
 .participant #content { display:flex; flex:1; flex-direction:column; min-height:360px; }
@@ -46,7 +46,7 @@ section { margin:20px 0; }
 .qr-display #content { display:flex; min-height:calc(100svh - 48px); flex-direction:column; align-items:center; justify-content:center; gap:20px; text-align:center; }
 .qr-display #content h2 { font-size:1.5rem; margin:0; font-weight:400; }
 .qr-display #content > p { font-size:1rem; margin:0; }
-.qr-display .qr { width:min(65vmin,720px); height:auto; margin:0; border-width:14px; }
+.qr-display .qr { width:min(65vmin,720px,100%)!important; height:auto!important; margin:0; border-width:14px; }
 #map { height:clamp(270px,43svh,480px); width:100%; border:1px solid #ffffff65; border-radius:16px; color-scheme:light; }
 .map-instruction { margin:24px 0 16px; font-size:1rem; }
 #map-message:empty { display:none; }
