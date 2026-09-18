@@ -57,7 +57,7 @@ section { margin:20px 0; }
 @media (max-width:360px) { .participant main { padding-left:20px; padding-right:20px; } }
 @media (prefers-reduced-motion:reduce) { * { transition:none!important; } }
 /* The artwork stays in TD; the phone is a quiet, tactile controller. */
-.atmosphere { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; opacity:.62; transform:scale(1.12); animation:latent-drift 72s ease-in-out infinite alternate; }
+.atmosphere { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; opacity:.9; transform:scale(1.04); animation:latent-drift 56s ease-in-out infinite alternate; }
 main { position:relative; z-index:1; }
 .participant main { max-width:520px; padding-bottom:max(24px,env(safe-area-inset-bottom)); }
 .participant #content { min-height:380px; }
@@ -83,8 +83,8 @@ main { position:relative; z-index:1; }
 @media (prefers-reduced-motion:reduce) { * { animation:none!important; } }
 
 @keyframes latent-drift {
-  0% { transform:translate(-1.5%,1%) scale(1.12) rotate(-3deg); opacity:.46; }
-  55% { opacity:.72; }
-  100% { transform:translate(2%,-2%) scale(1.2) rotate(4deg); opacity:.54; }
+  0% { transform:translate(-1.5%,1%) scale(1.04) rotate(-3deg); opacity:.85; }
+  55% { opacity:1; }
+  100% { transform:translate(2%,-2%) scale(1.1) rotate(4deg); opacity:.9; }
 }
 @media (prefers-reduced-motion:reduce) { .atmosphere { animation:none; } }

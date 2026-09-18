@@ -23,24 +23,28 @@ export function mountAtmosphere() {
       for (let x = 0; x < w; x++) {
         const u = x / w, v = y / h;
         // An off-centre, irregular enclosure suggests a place without drawing a map.
-        const dx = (u - .58) / .76, dy = (v - .53) / .39;
+        const dx = (u - .55) / .62, dy = (v - .54) / .34;
         const angle = Math.atan2(dy, dx);
         const radius = Math.sqrt(dx * dx + dy * dy);
         const edge = .95 + .12 * Math.sin(angle * 3 + .6) + .055 * Math.cos(angle * 5 - .8);
         const distance = radius - edge;
-        const width = .055 + .035 * (1 + Math.sin(angle * 2 - .4));
+        const width = .09 + .045 * (1 + Math.sin(angle * 2 - .4));
         const core = Math.exp(-Math.pow(distance / width, 2));
-        const dust = Math.exp(-Math.pow((distance - .07) / .23, 2));
+        const dust = Math.exp(-Math.pow((distance - .05) / .3, 2));
         // Leave gaps and a large quiet centre; nothing competes with the TD screen.
         const fragments = Math.pow(.5 + .5 * Math.sin(angle * 2.4 + .8), 2);
-        const fade = Math.min(1, Math.max(0, (v - .12) / .16), Math.max(0, (.94 - v) / .16));
-        const density = (core * .48 + dust * .085) * (.12 + fragments * .88) * fade;
+        const fade = Math.min(1, Math.max(0, (v - .12) / .12), Math.max(0, (.96 - v) / .12));
+        const presence = (.4 + fragments * .6) * fade;
+        const density = (core * .7 + dust * .16) * presence;
         const grain = random();
         const i = (y * w + x) * 4;
-        pixels.data[i] = 180;
-        pixels.data[i + 1] = 203;
+        pixels.data[i] = 194;
+        pixels.data[i + 1] = 218;
         pixels.data[i + 2] = 255;
-        pixels.data[i + 3] = grain < density ? 32 + random() * 62 : 0;
+        // A soft body remains visible between the fine dither grains.
+        const body = (core * .19 + dust * .065) * presence;
+        const fleck = grain < density ? .18 + random() * .32 : 0;
+        pixels.data[i + 3] = Math.min(190, 255 * (body + fleck));
       }
     }
     context!.putImageData(pixels, 0, 0);
