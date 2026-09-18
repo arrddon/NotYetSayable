@@ -215,7 +215,7 @@ function renderParticipant() {
   } else if (p.step === 'consent') {
     host.append(actionButton('I agree', () => act('consent')));
   } else if (p.step === 'tutorial') {
-    host.append(actionButton('Continue', () => act('tutorial')));
+    host.append(actionButton('Confirm', () => act('tutorial')));
   } else if (p.step === 'question') {
     if (p.status === 'ready') host.append(actionButton('Confirm', () => act('confirm')));
     else if (p.status === 'countdown') {
