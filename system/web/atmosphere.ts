@@ -1,4 +1,5 @@
-// A small, decorative canvas keeps the grain stable while the ribbons drift.
+// A quiet, incomplete contour: fine fixed grain, moved as one continuous surface.
+// No per-frame noise regeneration, so the texture never sparkles or crawls.
 export function mountAtmosphere() {
   const canvas = document.createElement('canvas');
   canvas.className = 'atmosphere';
@@ -6,53 +7,50 @@ export function mountAtmosphere() {
   document.body.prepend(canvas);
   const context = canvas.getContext('2d');
   if (!context) return;
-  const motion = matchMedia('(prefers-reduced-motion: reduce)');
-  let frame = 0;
-  let last = 0;
-  let time = 0;
-  let grain: Float32Array;
-  function resize() {
-    canvas.width = Math.min(300, Math.ceil(innerWidth / 3));
-    canvas.height = Math.min(400, Math.ceil(innerHeight / 3));
-    grain = Float32Array.from({ length: canvas.width * canvas.height }, () => Math.random());
-    draw();
-  }
+  let resizeFrame = 0;
+
   function draw() {
-    const w = canvas.width, h = canvas.height;
+    const scale = Math.min(devicePixelRatio || 1, 1.5, 1400 / Math.max(innerWidth, innerHeight));
+    const w = canvas.width = Math.ceil(innerWidth * scale);
+    const h = canvas.height = Math.ceil(innerHeight * scale);
     const pixels = context!.createImageData(w, h);
-    for (let x = 0; x < w; x++) {
-      const u = x / w;
-      const upper = .23 + .15 * Math.sin(u * 3.8 + time);
-      const lower = .78 + .17 * Math.sin(u * 4.2 - time * .7 + 1.4);
-      for (let y = 0; y < h; y++) {
-        const distance = Math.min(Math.abs(y / h - upper), Math.abs(y / h - lower));
-        const density = Math.exp(-Math.pow(distance / .034, 2)) * .62;
-        const i = y * w + x;
-        pixels.data[i * 4] = 210;
-        pixels.data[i * 4 + 1] = 223;
-        pixels.data[i * 4 + 2] = 255;
-        pixels.data[i * 4 + 3] = grain[i] < density ? 66 : 0;
+    let seed = 7319;
+    const random = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+      return (seed >>> 0) / 4294967296;
+    };
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x / w, v = y / h;
+        // An off-centre, irregular enclosure suggests a place without drawing a map.
+        const dx = (u - .58) / .76, dy = (v - .53) / .39;
+        const angle = Math.atan2(dy, dx);
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const edge = .95 + .12 * Math.sin(angle * 3 + .6) + .055 * Math.cos(angle * 5 - .8);
+        const distance = radius - edge;
+        const width = .055 + .035 * (1 + Math.sin(angle * 2 - .4));
+        const core = Math.exp(-Math.pow(distance / width, 2));
+        const dust = Math.exp(-Math.pow((distance - .07) / .23, 2));
+        // Leave gaps and a large quiet centre; nothing competes with the TD screen.
+        const fragments = Math.pow(.5 + .5 * Math.sin(angle * 2.4 + .8), 2);
+        const fade = Math.min(1, Math.max(0, (v - .12) / .16), Math.max(0, (.94 - v) / .16));
+        const density = (core * .48 + dust * .085) * (.12 + fragments * .88) * fade;
+        const grain = random();
+        const i = (y * w + x) * 4;
+        pixels.data[i] = 180;
+        pixels.data[i + 1] = 203;
+        pixels.data[i + 2] = 255;
+        pixels.data[i + 3] = grain < density ? 32 + random() * 62 : 0;
       }
     }
     context!.putImageData(pixels, 0, 0);
   }
-  function animate(now: number) {
-    if (now - last >= 100) {
-      time += Math.min(now - last, 150) / 24000;
-      last = now;
-      draw();
-    }
-    frame = requestAnimationFrame(animate);
-  }
-  function sync() {
-    cancelAnimationFrame(frame);
-    last = performance.now();
-    if (!motion.matches && !document.hidden) frame = requestAnimationFrame(animate);
-    else draw();
-  }
-  resize();
-  sync();
-  window.addEventListener('resize', resize);
-  motion.addEventListener('change', sync);
-  document.addEventListener('visibilitychange', sync);
+  draw();
+  window.addEventListener('resize', () => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(draw);
+  });
+  document.addEventListener('visibilitychange', () => {
+    canvas.style.animationPlayState = document.hidden ? 'paused' : 'running';
+  });
 }
