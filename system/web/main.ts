@@ -42,10 +42,10 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: 
   if (tag === 'summary' && !isOperator && !publicDisplayId) revealButtonAfterDelay(node);
   return node;
 }
-function button(text: string, action: () => void, disabled = false) {
+function button(text: string, action: () => void, disabled = false, reveal: 'delayed' | 'immediate' = 'delayed') {
   const node = el('button', text);
   node.type = 'button'; node.disabled = disabled;
-  if (!isOperator && !publicDisplayId) revealButtonAfterDelay(node);
+  if (reveal === 'delayed' && !isOperator && !publicDisplayId) revealButtonAfterDelay(node);
   node.addEventListener('click', action);
   return node;
 }
@@ -208,7 +208,7 @@ function renderParticipant() {
     const title = el('div', undefined, 'intro-copy');
     title.append(el('p', 'Latent Home', 'intro-subtitle'));
     host.append(title,
-      button('Start', () => { sessionStorage.setItem(introKey, 'started'); screenKey = ''; renderParticipant(); }));
+      button('Start', () => { sessionStorage.setItem(introKey, 'started'); screenKey = ''; renderParticipant(); }, false, 'immediate'));
     return;
   }
   renderProgress(host, p);
@@ -452,7 +452,7 @@ function renderEntry(token: string) {
   const title = el('div', undefined, 'intro-copy');
   title.append(el('p', 'Latent Home', 'intro-subtitle'));
   let joining = false;
-  const startButton = button('Start', () => { void join(); });
+  const startButton = button('Start', () => { void join(); }, false, 'immediate');
   async function join() {
     if (joining) return;
     joining = true;

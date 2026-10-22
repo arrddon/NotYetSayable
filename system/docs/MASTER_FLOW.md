@@ -22,7 +22,8 @@ The installation CSV is the source of all question, consent and tutorial copy.
 Mobile shows English action buttons, a six-segment progress indicator and a final pin map.
 Theme variables `--accent` and `--accent-bright` are at the top of `web/style.css`.
 
-Participant buttons, disclosure controls and map zoom buttons appear three
+The initial Start button appears immediately after opening the QR entry or the
+participant intro. All subsequent participant buttons, disclosure controls and map zoom buttons appear three
 seconds after each screen is rendered, with a
 half-second fade and upward motion. Until then they are hidden, unfocusable and
 cannot be activated. Existing busy, network and pin-validation checks still apply
