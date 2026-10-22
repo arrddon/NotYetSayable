@@ -3,6 +3,7 @@ import { mountAtmosphere } from './atmosphere';
 import QRCode from 'qrcode';
 import { Api, ApiError, configured, demo } from './api';
 import { mountMap } from './map';
+import { revealButtonAfterDelay } from './button-reveal';
 import type { Created, OperatorState, Participant, Snapshot } from './types';
 
 const app = document.querySelector<HTMLElement>('#app')!;
@@ -38,11 +39,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: 
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
   if (cls) node.className = cls;
+  if (tag === 'summary' && !isOperator && !publicDisplayId) revealButtonAfterDelay(node);
   return node;
 }
 function button(text: string, action: () => void, disabled = false) {
   const node = el('button', text);
   node.type = 'button'; node.disabled = disabled;
+  if (!isOperator && !publicDisplayId) revealButtonAfterDelay(node);
   node.addEventListener('click', action);
   return node;
 }
@@ -62,6 +65,8 @@ function shell() {
 }
 function message(text = '') {
   const host = document.querySelector<HTMLElement>('#errors')!;
+  if (host.dataset.message === text) return;
+  host.dataset.message = text;
   host.replaceChildren();
   if (!text) return;
   const box = el('div', undefined, 'error'); box.append(el('p', text));
@@ -70,13 +75,14 @@ function message(text = '') {
 }
 function updatePending() {
   const host = document.querySelector<HTMLElement>('#pending')!;
-  host.replaceChildren();
   if (pending() && !busy) {
-    const box = el('div', undefined, 'notice');
-    box.append(el('p', 'Your last request is awaiting confirmation.'),
-      button('Check request', () => { const item = pending(); if (item) void mutate(item.name, item.args, true); }));
-    host.append(box);
-  }
+    if (!host.firstElementChild) {
+      const box = el('div', undefined, 'notice');
+      box.append(el('p', 'Your last request is awaiting confirmation.'),
+        button('Check request', () => { const item = pending(); if (item) void mutate(item.name, item.args, true); }));
+      host.append(box);
+    }
+  } else host.replaceChildren();
   content().querySelectorAll<HTMLButtonElement>('button[data-action]').forEach((b) => {
     b.disabled = busy || networkError || Boolean(pending()) || b.dataset.unavailable === 'true';
   });
@@ -206,6 +212,10 @@ function renderParticipant() {
     return;
   }
   renderProgress(host, p);
+  if (!review && (p.step === 'consent' || p.step === 'tutorial' ||
+    (p.step === 'question' && ['ready', 'result'].includes(p.status)))) {
+    host.append(el('p', 'Please look at the screen.', 'screen-instruction'));
+  }
   if (review) {
     host.append(el('p', 'Step ' + review.question));
     const actions = el('div', undefined, 'actions');
@@ -272,9 +282,13 @@ function renderMap(host: HTMLElement, p: Participant) {
   const submit = actionButton('Confirm pin', () => form.requestSubmit(), !p.pin);
   const coordinates = el('details'); coordinates.append(el('summary', 'Enter coordinates'), latLabel, lngLabel);
   form.append(coordinates, submit);
-  form.onsubmit = (event) => { event.preventDefault(); if (form.reportValidity()) act('pin', { lat: Number(lat.value), lng: Number(lng.value) }); };
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (!submit.inert && !submit.disabled && form.reportValidity()) act('pin', { lat: Number(lat.value), lng: Number(lng.value) });
+  };
   host.append(mapHost, mapMessage, form);
   const map = mountMap(mapHost, p.pin, (pin) => { lat.value = String(pin.lat); lng.value = String(pin.lng); submit.dataset.unavailable = 'false'; updatePending(); });
+  mapHost.querySelectorAll<HTMLElement>('[role="button"]').forEach(revealButtonAfterDelay);
   for (const input of [lat,lng]) input.onchange = () => {
     const valid = Boolean(lat.value && lng.value && lat.validity.valid && lng.validity.valid);
     submit.dataset.unavailable = String(!valid); updatePending();

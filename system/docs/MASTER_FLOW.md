@@ -22,11 +22,23 @@ The installation CSV is the source of all question, consent and tutorial copy.
 Mobile shows English action buttons, a six-segment progress indicator and a final pin map.
 Theme variables `--accent` and `--accent-bright` are at the top of `web/style.css`.
 
+Participant buttons, disclosure controls and map zoom buttons appear three
+seconds after each screen is rendered, with a
+half-second fade and upward motion. Until then they are hidden, unfocusable and
+cannot be activated. Existing busy, network and pin-validation checks still apply
+after reveal. Recovery buttons share this delay; routine polling retains them so
+the timer can finish. Operator controls appear immediately. Reduced-motion users
+keep the same three-second wait without the reveal animation.
+
+Consent, instructions, question-ready and result screens show
+“Please look at the screen.” to direct participants to the TD display before
+confirming or continuing. Question text and analysis remain on TD.
+
 | CSV phase | State | Mobile action |
 | --- | --- | --- |
 | 0 | Idle | Scan QR |
 | 1 | Consent text on TD | I agree · Begin |
-| 2 | Instructions on TD | Continue |
+| 2 | Instructions on TD | Confirm |
 | 3 / 6 / 9 | Q1 / Q2 / Q3 on TD | Confirm |
 | 4 / 7 / 10 | Countdown / OCR / analysis | Wait |
 | 5 / 8 / 11 | Result on TD | Continue |
